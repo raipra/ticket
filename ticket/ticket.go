@@ -23,6 +23,7 @@ type Asset struct {
 	ISPID                    string          `json:"ISPID"`
 	ActionTaken              string          `json:"ActionTaken"`
 	AuthCode                 string          `json:"AuthCode"`
+	PromisedDate			 string			 `json:"PromisedDate"`
 	VisitStartDate           string          `json:"VisitStartDate"`
 	VisitEndDate             string          `json:"VisitEndDate"`
 	TicketDescription        string          `json:"ClaimDescription"`
@@ -31,7 +32,7 @@ type Asset struct {
 	FaultReported            string          `json:"FaultReported"`
 	CoverageCode             string          `json:"CoverageCode"`
 	ResolutionCode           string          `json:"ResolutionCode"`
-	ProductDetails           ProductDetail   `json:"ProductDetails"`
+	ProductDetail            ProductDetail   `json:"ProductDetail"`
 	Consumer                 Consumer        `json:"Consumer"`
 	Site                     ServiceLocation `json:"Site"`
 	PartsConsumed            []Part          `json:"PartsConsumed"`
@@ -100,6 +101,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 		Status:                   "Dispatched",
 		ExternalRefNum:           "1070935",
 		ISPID:                    "ITXISP1412",
+		PromisedDate:     		  "20230110",
 		VisitStartDate:           "20230110",
 		VisitEndDate:             "20230110",
 		TicketDescription:        "AVATRICE ELECTROLUX TUTTO SPENTO",
@@ -130,7 +132,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 			StartDate:      "20201007",
 			EndDate:        "20221007",
 		},
-		ProductDetails: ProductDetail{
+		ProductDetail: ProductDetail{
 			ProductID:    "914916405",
 			Brand:        "ELX",
 			ProductType:  "Washer,Front Loaded",
@@ -173,39 +175,15 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 	return nil
 }
 
-// CreateAsset issues a new asset to the world state with given details.
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, id string, color string, size int, owner string, appraisedValue int) error {
-	exists, err := s.AssetExists(ctx, id)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return fmt.Errorf("the asset %s already exists", id)
-	}
-
-	asset := Asset{
-		ID:             id,
-		Color:          color,
-		Size:           size,
-		Owner:          owner,
-		AppraisedValue: appraisedValue,
-	}
-	assetJSON, err := json.Marshal(asset)
-	if err != nil {
-		return err
-	}
-
-	return ctx.GetStub().PutState(id, assetJSON)
-}
 
 // ReadAsset returns the asset stored in the world state with given id.
-func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, id string) (*Asset, error) {
-	assetJSON, err := ctx.GetStub().GetState(id)
+func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, TicketID string) (*Asset, error) {
+	assetJSON, err := ctx.GetStub().GetState(TicketID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from world state: %v", err)
 	}
 	if assetJSON == nil {
-		return nil, fmt.Errorf("the asset %s does not exist", id)
+		return nil, fmt.Errorf("the asset %s does not exist", TicketID)
 	}
 
 	var asset Asset
@@ -217,48 +195,10 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, i
 	return &asset, nil
 }
 
-// UpdateAsset updates an existing asset in the world state with provided parameters.
-func (s *SmartContract) UpdateAsset(ctx contractapi.TransactionContextInterface, id string, color string, size int, owner string, appraisedValue int) error {
-	exists, err := s.AssetExists(ctx, id)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("the asset %s does not exist", id)
-	}
-
-	// overwriting original asset with new asset
-	asset := Asset{
-		ID:             id,
-		Color:          color,
-		Size:           size,
-		Owner:          owner,
-		AppraisedValue: appraisedValue,
-	}
-	assetJSON, err := json.Marshal(asset)
-	if err != nil {
-		return err
-	}
-
-	return ctx.GetStub().PutState(id, assetJSON)
-}
-
-// DeleteAsset deletes an given asset from the world state.
-func (s *SmartContract) DeleteAsset(ctx contractapi.TransactionContextInterface, id string) error {
-	exists, err := s.AssetExists(ctx, id)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return fmt.Errorf("the asset %s does not exist", id)
-	}
-
-	return ctx.GetStub().DelState(id)
-}
 
 // AssetExists returns true when asset with given ID exists in world state
-func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface, id string) (bool, error) {
-	assetJSON, err := ctx.GetStub().GetState(id)
+func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface, TicketID string) (bool, error) {
+	assetJSON, err := ctx.GetStub().GetState(TicketID)
 	if err != nil {
 		return false, fmt.Errorf("failed to read from world state: %v", err)
 	}
@@ -266,20 +206,182 @@ func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface,
 	return assetJSON != nil, nil
 }
 
-// TransferAsset updates the owner field of asset with given id in world state.
-func (s *SmartContract) TransferAsset(ctx contractapi.TransactionContextInterface, id string, newOwner string) error {
-	asset, err := s.ReadAsset(ctx, id)
+// TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
+func (s *SmartContract) UpdateTicketStatus(ctx contractapi.TransactionContextInterface, ticketId string, newStatus string) (string, error) {
+	asset, err := s.ReadAsset(ctx, ticketId)
+	if err != nil {
+		return "", err
+	}
+
+	oldStatus := asset.Status
+	asset.Status = newStatus
+
+	assetJSON, err := json.Marshal(asset)
+	if err != nil {
+		return "", err
+	}
+
+	err = ctx.GetStub().PutState(ticketId, assetJSON)
+	if err != nil {
+		return "", err
+	}
+
+	return oldStatus, nil
+}
+
+// TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
+func (s *SmartContract) AddParts(ctx contractapi.TransactionContextInterface, ticketId string, args string) error {
+	asset, err := s.ReadAsset(ctx, ticketId)
 	if err != nil {
 		return err
 	}
+	parts := make([]Part, 0)
+	json.Unmarshal([]byte(args), &parts)
 
-	asset.Owner = newOwner
+	for _, part := range parts {
+		asset.PartsConsumed = append(asset.PartsConsumed, part)
+	}
+
+	
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
 		return err
 	}
 
-	return ctx.GetStub().PutState(id, assetJSON)
+	err = ctx.GetStub().PutState(ticketId, assetJSON)
+	if err != nil {
+		return err		
+	}
+
+	return  nil
+}
+
+func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface, 
+	ticketId string, 
+	externalRefNum string,
+	actionTaken string,
+	visitStartDate string,
+	visitEndDate string,
+	faultCode string,
+	componentCode string,
+	defectCode string,
+	serialNumber string,
+	mLCode string,
+	purchaseDate string ) (string, error) {
+
+	asset, err := s.ReadAsset(ctx, ticketId)
+	if err != nil {
+		return "", err
+	}
+
+
+	if externalRefNum != "" {
+		asset.ExternalRefNum = externalRefNum 
+	}
+	if actionTaken != "" {
+		asset.ActionTaken = actionTaken 
+	}	
+	if visitStartDate != "" {
+		asset.VisitStartDate = visitStartDate 
+	}	
+	if visitEndDate != "" {
+		asset.VisitEndDate = visitEndDate 
+	}	
+	if faultCode != "" {
+		asset.FaultKey.FaultCode = faultCode
+	}	
+	if componentCode != "" {
+		asset.FaultKey.ComponentCode = componentCode
+	}	
+	if defectCode != "" {
+		asset.FaultKey.DefectCode = defectCode
+	}	
+	if serialNumber != "" {
+		asset.ProductDetail.SerialNumber= serialNumber 
+	}	
+	if mLCode != "" {
+		asset.ProductDetail.MLCode = mLCode 
+	}
+	if purchaseDate != "" {
+		asset.ProductDetail.PurchaseDate = purchaseDate 
+	}
+
+
+	
+	asset.Status = "ClaimSubmitted"
+
+	assetJSON, err := json.Marshal(asset)
+	if err != nil {
+		return "", err
+	}
+
+	err = ctx.GetStub().PutState(ticketId, assetJSON)
+	if err != nil {
+		return "", err
+	}
+
+	return asset.Status, nil
+}
+// CreateAsset issues a new asset to the world state with given details.
+func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, 
+	ticketID, ispId, ticketDescription, promisedDate, coverageCode,
+	firstName, lastName, language, email, mobile, street, city, country, postalCode,
+	warrantyNumber, providerID, providerName, warrantyStartDate, warrantyEndDate,
+	productID, purchaseDate, retailer, warrantyCode, mLCode, serialNumber string ) error {
+	exists, err := s.AssetExists(ctx, ticketID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("the asset %s already exists", ticketID)
+	}
+    asset := Asset{
+        TicketID: ticketID,
+		ISPID: 		ispId,
+		TicketDescription: ticketDescription,
+		PromisedDate: promisedDate,
+		CoverageCode: coverageCode,
+		Consumer: Consumer{
+			FirstName:  firstName,
+			LastName:   lastName,
+			Language:   language,
+			Email:      email,
+			Mobile:     mobile,
+			Telephone:  mobile,
+			Street:     street,
+			City:       city,
+			Country:    country,
+			PostalCode: postalCode,
+		},
+		Warranty: Warranty{
+			WarrantyNumber: warrantyNumber,
+			ProviderID:     providerID,
+			ProviderName:  providerName,
+			StartDate:      warrantyStartDate,
+			EndDate:        warrantyEndDate,
+		},
+		ProductDetail: ProductDetail{
+			ProductID:    productID,
+			SerialNumber: serialNumber,
+			MLCode:       mLCode,
+			PurchaseDate: purchaseDate,
+			Retailer:     retailer,
+			WarrantyCode: warrantyCode,
+		},
+		PartsConsumed: []Part{
+			Part{
+				ProductCode: "30016",
+				Quantity:    "1",
+			},
+		},
+    }
+
+	assetJSON, err := json.Marshal(asset)
+	if err != nil {
+		return err
+	}
+
+	return ctx.GetStub().PutState(ticketID, assetJSON)
 }
 
 // GetAllAssets returns all assets found in world state
@@ -301,9 +403,11 @@ func (s *SmartContract) GetAllAssets(ctx contractapi.TransactionContextInterface
 
 		var asset Asset
 		err = json.Unmarshal(queryResponse.Value, &asset)
+
 		if err != nil {
 			return nil, err
 		}
+	
 		assets = append(assets, &asset)
 	}
 
