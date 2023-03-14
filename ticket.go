@@ -23,7 +23,7 @@ type Asset struct {
 	ISPID                    string          `json:"ISPID"`
 	ActionTaken              string          `json:"ActionTaken"`
 	AuthCode                 string          `json:"AuthCode"`
-	PromisedDate             string          `json:"PromisedDate"`
+	PromisedDate			 string			 `json:"PromisedDate"`
 	VisitStartDate           string          `json:"VisitStartDate"`
 	VisitEndDate             string          `json:"VisitEndDate"`
 	TicketDescription        string          `json:"ClaimDescription"`
@@ -101,7 +101,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 		Status:                   "Dispatched",
 		ExternalRefNum:           "1070935",
 		ISPID:                    "ITXISP1412",
-		PromisedDate:             "20230110",
+		PromisedDate:     		  "20230110",
 		VisitStartDate:           "20230110",
 		VisitEndDate:             "20230110",
 		TicketDescription:        "AVATRICE ELECTROLUX TUTTO SPENTO",
@@ -175,6 +175,7 @@ func (s *SmartContract) InitLedger(ctx contractapi.TransactionContextInterface) 
 	return nil
 }
 
+
 // ReadAsset returns the asset stored in the world state with given id.
 func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, TicketID string) (*Asset, error) {
 	assetJSON, err := ctx.GetStub().GetState(TicketID)
@@ -193,6 +194,7 @@ func (s *SmartContract) ReadAsset(ctx contractapi.TransactionContextInterface, T
 
 	return &asset, nil
 }
+
 
 // AssetExists returns true when asset with given ID exists in world state
 func (s *SmartContract) AssetExists(ctx contractapi.TransactionContextInterface, TicketID string) (bool, error) {
@@ -240,6 +242,7 @@ func (s *SmartContract) AddParts(ctx contractapi.TransactionContextInterface, ti
 		asset.PartsConsumed = append(asset.PartsConsumed, part)
 	}
 
+	
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
 		return err
@@ -247,14 +250,14 @@ func (s *SmartContract) AddParts(ctx contractapi.TransactionContextInterface, ti
 
 	err = ctx.GetStub().PutState(ticketId, assetJSON)
 	if err != nil {
-		return err
+		return err		
 	}
 
-	return nil
+	return  nil
 }
 
-func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface,
-	ticketId string,
+func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface, 
+	ticketId string, 
 	externalRefNum string,
 	actionTaken string,
 	visitStartDate string,
@@ -264,44 +267,47 @@ func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface,
 	defectCode string,
 	serialNumber string,
 	mLCode string,
-	purchaseDate string) (string, error) {
+	purchaseDate string ) (string, error) {
 
 	asset, err := s.ReadAsset(ctx, ticketId)
 	if err != nil {
 		return "", err
 	}
 
+
 	if externalRefNum != "" {
-		asset.ExternalRefNum = externalRefNum
+		asset.ExternalRefNum = externalRefNum 
 	}
 	if actionTaken != "" {
-		asset.ActionTaken = actionTaken
-	}
+		asset.ActionTaken = actionTaken 
+	}	
 	if visitStartDate != "" {
-		asset.VisitStartDate = visitStartDate
-	}
+		asset.VisitStartDate = visitStartDate 
+	}	
 	if visitEndDate != "" {
-		asset.VisitEndDate = visitEndDate
-	}
+		asset.VisitEndDate = visitEndDate 
+	}	
 	if faultCode != "" {
 		asset.FaultKey.FaultCode = faultCode
-	}
+	}	
 	if componentCode != "" {
 		asset.FaultKey.ComponentCode = componentCode
-	}
+	}	
 	if defectCode != "" {
 		asset.FaultKey.DefectCode = defectCode
-	}
+	}	
 	if serialNumber != "" {
-		asset.ProductDetail.SerialNumber = serialNumber
-	}
+		asset.ProductDetail.SerialNumber= serialNumber 
+	}	
 	if mLCode != "" {
-		asset.ProductDetail.MLCode = mLCode
+		asset.ProductDetail.MLCode = mLCode 
 	}
 	if purchaseDate != "" {
-		asset.ProductDetail.PurchaseDate = purchaseDate
+		asset.ProductDetail.PurchaseDate = purchaseDate 
 	}
 
+
+	
 	asset.Status = "ClaimSubmitted"
 
 	assetJSON, err := json.Marshal(asset)
@@ -316,13 +322,12 @@ func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface,
 
 	return asset.Status, nil
 }
-
 // CreateAsset issues a new asset to the world state with given details.
-func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
+func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, 
 	ticketID, ispId, ticketDescription, promisedDate, coverageCode,
 	firstName, lastName, language, email, mobile, street, city, country, postalCode,
 	warrantyNumber, providerID, providerName, warrantyStartDate, warrantyEndDate,
-	productID, purchaseDate, retailer, warrantyCode, mLCode, serialNumber string) error {
+	productID, purchaseDate, retailer, warrantyCode, mLCode, serialNumber string ) error {
 	exists, err := s.AssetExists(ctx, ticketID)
 	if err != nil {
 		return err
@@ -330,12 +335,12 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 	if exists {
 		return fmt.Errorf("the asset %s already exists", ticketID)
 	}
-	asset := Asset{
-		TicketID:          ticketID,
-		ISPID:             ispId,
+    asset := Asset{
+        TicketID: ticketID,
+		ISPID: 		ispId,
 		TicketDescription: ticketDescription,
-		PromisedDate:      promisedDate,
-		CoverageCode:      coverageCode,
+		PromisedDate: promisedDate,
+		CoverageCode: coverageCode,
 		Consumer: Consumer{
 			FirstName:  firstName,
 			LastName:   lastName,
@@ -351,7 +356,7 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 		Warranty: Warranty{
 			WarrantyNumber: warrantyNumber,
 			ProviderID:     providerID,
-			ProviderName:   providerName,
+			ProviderName:  providerName,
 			StartDate:      warrantyStartDate,
 			EndDate:        warrantyEndDate,
 		},
@@ -369,7 +374,7 @@ func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface,
 				Quantity:    "1",
 			},
 		},
-	}
+    }
 
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
@@ -402,7 +407,7 @@ func (s *SmartContract) GetAllAssets(ctx contractapi.TransactionContextInterface
 		if err != nil {
 			return nil, err
 		}
-
+	
 		assets = append(assets, &asset)
 	}
 
@@ -419,3 +424,4 @@ func main() {
 		log.Panicf("Error starting asset-transfer-basic chaincode: %v", err)
 	}
 }
+
