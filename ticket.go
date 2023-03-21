@@ -256,6 +256,28 @@ func (s *SmartContract) AddParts(ctx contractapi.TransactionContextInterface, ti
 	return  nil
 }
 
+// TransferAsset updates the owner field of asset with given id in world state, and returns the old owner.
+func (s *SmartContract) UpdateTicket(ctx contractapi.TransactionContextInterface, ticketId string, args string) error {
+
+	tickets := make([]Asset, 0)
+	json.Unmarshal([]byte(args), &tickets)
+
+	for _, ticket := range tickets {
+		ticketJSON, err := json.Marshal(ticket)
+		if err != nil {
+			return err
+		}
+
+		err = ctx.GetStub().PutState(ticket.TicketID, ticketJSON)
+		if err != nil {
+			return fmt.Errorf("failed to put to world state. %v", err)
+		}
+	}
+
+	return  nil
+}
+
+//Submit a Claim - Asset Update to change the status to Claims Submitted
 func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface, 
 	ticketId string, 
 	externalRefNum string,
@@ -267,7 +289,8 @@ func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface,
 	defectCode string,
 	serialNumber string,
 	mLCode string,
-	purchaseDate string ) (string, error) {
+	purchaseDate string,
+	partsAdded string ) (string, error) {
 
 	asset, err := s.ReadAsset(ctx, ticketId)
 	if err != nil {
@@ -309,6 +332,13 @@ func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface,
 
 	
 	asset.Status = "ClaimSubmitted"
+	//Add Parts
+	parts := make([]Part, 0)
+	json.Unmarshal([]byte(partsAdded), &parts)
+
+	for _, part :=	 range parts {
+		asset.PartsConsumed = append(asset.PartsConsumed, part)
+	}
 
 	assetJSON, err := json.Marshal(asset)
 	if err != nil {
@@ -322,6 +352,7 @@ func (s *SmartContract) SubmitClaim(ctx contractapi.TransactionContextInterface,
 
 	return asset.Status, nil
 }
+
 // CreateAsset issues a new asset to the world state with given details.
 func (s *SmartContract) CreateAsset(ctx contractapi.TransactionContextInterface, 
 	ticketID, ispId, ticketDescription, promisedDate, coverageCode,
