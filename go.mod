@@ -1,4 +1,4 @@
-module github.com/raipra/ticket-fabric
+module github.com/raipra/ticket
 
 go 1.19
 
